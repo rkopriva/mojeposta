@@ -1,1 +1,1 @@
-# mojeposta
+# Informace o projektu Moje Posta
