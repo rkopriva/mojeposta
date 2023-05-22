@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MojePosta0.1</string>
+    <string name="prms">Prosím povolte přístup k vaší lokaci pro zobrazení vaší polohy na mapě</string>
 </resources>
