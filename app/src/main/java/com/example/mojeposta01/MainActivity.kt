@@ -1,13 +1,14 @@
 package com.example.mojeposta01
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.widget.Button
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions
 import com.mapbox.mapboxsdk.location.LocationComponentOptions
@@ -21,6 +22,7 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
     private var permissionsManager: PermissionsManager = PermissionsManager(this)
     private lateinit var mapboxMap: MapboxMap
     private var mapView: MapView? = null
+    private var button: Button? = null
     //sdk pridani
 
     private fun getMapTilerKey(): String? {
@@ -109,6 +111,12 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
         // Set the map view layout
         setContentView(R.layout.activity_main)
 
+        button= findViewById(R.id.button)
+        button?.setOnClickListener {
+            val location = mapboxMap.locationComponent.lastKnownLocation ?: return@setOnClickListener
+            val latlng = LatLng(location.latitude, location.longitude)
+            mapboxMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latlng,16.0))
+        }
         // Create map view
         mapView = findViewById(R.id.mapView)
         mapView?.onCreate(savedInstanceState)
