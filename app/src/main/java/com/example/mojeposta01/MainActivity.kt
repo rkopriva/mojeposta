@@ -2,15 +2,20 @@ package com.example.mojeposta01
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.RectF
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.widget.TextView
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.constraintlayout.widget.Guideline
 import androidx.core.content.ContextCompat
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
+import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
 import com.mapbox.mapboxsdk.geometry.LatLng
 import com.mapbox.mapboxsdk.location.LocationComponentActivationOptions
 import com.mapbox.mapboxsdk.location.LocationComponentOptions
@@ -24,6 +29,7 @@ import com.mapbox.mapboxsdk.style.layers.CircleLayer
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleColor
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleOpacity
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleRadius
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.textAllowOverlap
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.textColor
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.textField
@@ -43,6 +49,8 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
     private var permissionsManager: PermissionsManager = PermissionsManager(this)
     private lateinit var mapboxMap: MapboxMap
     private var mapView: MapView? = null
+    private var informace: ConstraintLayout? = null
+    private var pomocnik: Guideline? = null
     //sdk pridani
 
 
@@ -131,9 +139,38 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
                 textIgnorePlacement(true),
                 textAllowOverlap(true))
 
-           // style.addLayer(countLayer)
+            style.addLayer(countLayer)
 
+            //
+            val poiDrawable = getDrawable(R.drawable.dobre)
+            style.addImage("IKONAPOBOCKA", poiDrawable!!)
 
+            val postaLayer = SymbolLayer("POBOCKA", "POSTY")
+            postaLayer.setProperties(
+                iconImage("IKONAPOBOCKA")
+            )
+            postaLayer.withFilter(
+                Expression.all(
+                    Expression.not(Expression.has("cluster")),
+                    Expression.not(Expression.eq(Expression.get("ZRUSENA"), 1))
+                )
+            )
+            style.addLayer(postaLayer)
+
+            val poiDrawableZrusena = getDrawable(R.drawable.zrusene)
+            style.addImage("IKONAPOBOCKAZRUSENA", poiDrawableZrusena!!)
+
+            val zrusenaPostaLayer = SymbolLayer("POBOCKA_ZRUSENA", "POSTY")
+            zrusenaPostaLayer.setProperties(
+                iconImage("IKONAPOBOCKAZRUSENA")
+            )
+            zrusenaPostaLayer.withFilter(
+                Expression.all(
+                    Expression.not(Expression.has("cluster")),
+                    Expression.eq(Expression.get("ZRUSENA"), 1)
+                )
+            )
+            style.addLayer(zrusenaPostaLayer)
 
         } catch (exception: URISyntaxException) {
             Log.e("MainActivity", "Check the URL " + exception.message)
@@ -185,12 +222,18 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
 
         // Set the map view layout
         setContentView(R.layout.activity_main)
-
+        pomocnik = findViewById(R.id.pomocnik) as? Guideline
+        informace = findViewById(R.id.infoview) as? ConstraintLayout
+        pomocnik?.setGuidelinePercent(1f)
         // Create map view
         mapView = findViewById(R.id.mapView)
         mapView?.onCreate(savedInstanceState)
         mapView?.getMapAsync { map ->
             mapboxMap = map
+            mapboxMap.addOnMapClickListener {
+                handleMapViewClick(it)
+                return@addOnMapClickListener true
+            }
             // Set the style after mapView was loaded
             map.setStyle(styleUrl) {
                 map.uiSettings.setAttributionMargins(15, 0, 0, 15)
@@ -203,6 +246,34 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
                 addSourcesAndLayers(it)
             }
         }
+    }
+    private fun handleMapViewClick(latLng: LatLng) {
+        val centerPoint = mapboxMap.projection.toScreenLocation(latLng)
+        val distanceTolerance = 0.5f
+
+        val searchArea = RectF(
+            centerPoint.x - distanceTolerance,
+            centerPoint.y - distanceTolerance,
+            centerPoint.x - distanceTolerance,
+            centerPoint.y - distanceTolerance
+        )
+        val features = mapboxMap.queryRenderedFeatures(searchArea,"POBOCKA", "POBOCKA-ZRUSENA")
+
+        features.firstOrNull()?.let {
+            val properties = it.properties()
+                ?: return
+
+            val nazev = properties.get("NAZEV").asString
+            val adresa = properties.get("ADRESA").asString
+
+            //Toast.makeText(this, "$nazev $adresa", Toast.LENGTH_LONG).show()
+            val nazevTextView = findViewById<TextView>(R.id.nazevpobocky)
+            nazevTextView.text = nazev
+            val adresaTextView = findViewById<TextView>(R.id.adresapobocky)
+            adresaTextView.text = adresa
+            pomocnik?.setGuidelinePercent(0.8f)
+            mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+        } ?: kotlin.run { pomocnik?.setGuidelinePercent(1f) }
     }
     private fun validateKey(mapTilerKey: String?) {
         if (mapTilerKey == null) {
