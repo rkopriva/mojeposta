@@ -1,19 +1,23 @@
 package com.example.mojeposta01
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.RectF
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.Button
+import android.util.AttributeSet
 import android.util.Log
+import android.view.View
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
 import androidx.core.content.ContextCompat
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
+import com.mapbox.geojson.Feature
+import com.mapbox.geojson.FeatureCollection
+import com.mapbox.geojson.LineString
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
@@ -27,6 +31,8 @@ import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.style.expressions.Expression
 import com.mapbox.mapboxsdk.style.layers.CircleLayer
+import com.mapbox.mapboxsdk.style.layers.LineLayer
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleColor
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleOpacity
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleRadius
@@ -46,6 +52,7 @@ import java.io.Reader
 import java.io.StringWriter
 import java.io.Writer
 import java.net.URISyntaxException
+
 
 class MainActivity : AppCompatActivity(),PermissionsListener {
     private var permissionsManager: PermissionsManager = PermissionsManager(this)
@@ -85,7 +92,7 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
                 isLocationComponentEnabled = true
 
                 // Set the LocationComponent's camera mode
-                cameraMode = CameraMode.TRACKING
+                cameraMode = CameraMode.NONE
 
                 // Set the LocationComponent's render mode
                 renderMode = RenderMode.COMPASS
@@ -179,6 +186,30 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
 
         } catch (exception: URISyntaxException) {
             Log.e("MainActivity", "Check the URL " + exception.message)
+        }
+    }
+    private fun addLine(point1:com.mapbox.geojson.Point, point2:com.mapbox.geojson.Point)
+    {
+        val geometry = LineString.fromLngLats(arrayListOf(point1,point2))
+        val feature = Feature.fromGeometry(geometry)
+        val featureColection =  FeatureCollection.fromFeature(feature)
+        val style = mapboxMap.style ?: return
+        if(style.getSource("navigacniCara")==null) {
+            style.addSource(
+                GeoJsonSource(
+                    "navigacniCara",featureColection)
+                )
+
+            val layer = LineLayer("cara", "navigacniCara")
+                .withProperties(
+                    PropertyFactory.lineColor("rgb(255,0,0)"),
+                    PropertyFactory.lineWidth(2f)
+                )
+            style.addLayer(layer)
+        }
+        else
+        {
+            style.getSourceAs<GeoJsonSource>("navigacniCara")?.setGeoJson(featureColection)
         }
     }
     override fun onStart() {
@@ -285,6 +316,13 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             adresaTextView.text = adresa
             pomocnik?.setGuidelinePercent(0.8f)
             mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+            val gpsPoloha = mapboxMap.locationComponent.lastKnownLocation
+            if (gpsPoloha != null)
+            {
+                val point1 = com.mapbox.geojson.Point.fromLngLat(gpsPoloha.longitude, gpsPoloha.latitude)
+                val point2 = com.mapbox.geojson.Point.fromLngLat(latLng.longitude, latLng.latitude)
+                addLine(point1,point2)
+            }
         } ?: kotlin.run { pomocnik?.setGuidelinePercent(1f) }
     }
     private fun validateKey(mapTilerKey: String?) {
