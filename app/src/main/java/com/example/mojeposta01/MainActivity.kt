@@ -7,11 +7,14 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
 import android.util.Log
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
 import androidx.core.content.ContextCompat
+import com.google.firebase.database.core.Context
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
 import com.mapbox.mapboxsdk.Mapbox
@@ -46,6 +49,7 @@ import java.io.Reader
 import java.io.StringWriter
 import java.io.Writer
 import java.net.URISyntaxException
+
 
 class MainActivity : AppCompatActivity(),PermissionsListener {
     private var permissionsManager: PermissionsManager = PermissionsManager(this)
@@ -177,6 +181,7 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             )
             style.addLayer(zrusenaPostaLayer)
 
+
         } catch (exception: URISyntaxException) {
             Log.e("MainActivity", "Check the URL " + exception.message)
         }
@@ -256,9 +261,27 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
                     .build()
                 enableLocationComponent(it)
                 addSourcesAndLayers(it)
+
+                val searchEditText = findViewById<EditText>(R.id.searchEditText)
+                searchEditText.setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEARCH) {
+                        val adresaProHledani = searchEditText.text.toString()
+
+                        GeocodingService(this).geocodeAddress(adresaProHledani) { vysledek ->
+                            vysledek?.let { lokace ->
+                                mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(lokace))
+                            }
+                        }
+
+                        return@setOnEditorActionListener true
+                    }
+                    false
+                }
+
             }
         }
     }
+
     private fun handleMapViewClick(latLng: LatLng) {
         val centerPoint = mapboxMap.projection.toScreenLocation(latLng)
         val distanceTolerance = 0.5f
@@ -295,6 +318,7 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             throw Exception("Please enter correct MapTiler key in module-level gradle.build file in defaultConfig section")
         }
     }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults)

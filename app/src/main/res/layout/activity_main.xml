@@ -11,7 +11,9 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@+id/pomocnik"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="1.0"
+        tools:layout_editor_absoluteX="-179dp">
 
     </com.mapbox.mapboxsdk.maps.MapView>
 
@@ -74,5 +76,24 @@
         app:layout_constraintBottom_toBottomOf="@+id/mapView"
         app:layout_constraintEnd_toEndOf="parent"
         app:srcCompat="@mipmap/lctn3_foreground" />
+
+    <EditText
+        android:id="@+id/searchEditText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="🔎Vyhledat"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:background="@android:color/darker_gray"
+        android:layout_margin="16dp"
+        android:maxLines="1"
+        android:imeOptions="actionSearch"
+        android:inputType="text"/>
+
+
+
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>
