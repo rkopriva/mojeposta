@@ -1,6 +1,7 @@
 package com.example.mojeposta01
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.Point
 import android.graphics.RectF
 import android.os.Bundle
 import android.util.AttributeSet
@@ -192,28 +193,28 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             Log.e("MainActivity", "Check the URL " + exception.message)
         }
     }
-    private fun addLine(point1:com.mapbox.geojson.Point, point2:com.mapbox.geojson.Point)
+    private fun addRoute(start:LatLng, end:LatLng)
     {
-        val geometry = LineString.fromLngLats(arrayListOf(point1,point2))
-        val feature = Feature.fromGeometry(geometry)
-        val featureColection =  FeatureCollection.fromFeature(feature)
-        val style = mapboxMap.style ?: return
-        if(style.getSource("navigacniCara")==null) {
-            style.addSource(
-                GeoJsonSource(
-                    "navigacniCara",featureColection)
+        RoutingService(this).findRoute(start, end) { featureColection ->
+            val style = mapboxMap.style ?: return@findRoute
+            if(style.getSource("navigacniCara")==null) {
+                style.addSource(
+                    GeoJsonSource(
+                        "navigacniCara",featureColection)
                 )
 
-            val layer = LineLayer("cara", "navigacniCara")
-                .withProperties(
-                    PropertyFactory.lineColor("rgb(255,0,0)"),
-                    PropertyFactory.lineWidth(2f)
-                )
-            style.addLayer(layer)
-        }
-        else
-        {
-            style.getSourceAs<GeoJsonSource>("navigacniCara")?.setGeoJson(featureColection)
+                val layer = LineLayer("cara", "navigacniCara")
+                    .withProperties(
+                        PropertyFactory.lineColor("rgb(0,0,255)"),
+                        PropertyFactory.lineWidth(2f),
+                        PropertyFactory.lineGapWidth(2f)
+                    )
+                style.addLayer(layer)
+            }
+            else
+            {
+                style.getSourceAs<GeoJsonSource>("navigacniCara")?.setGeoJson(featureColection)
+            }
         }
     }
     override fun onStart() {
@@ -345,11 +346,13 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             pomocnik?.setGuidelinePercent(0.8f)
             mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
             val gpsPoloha = mapboxMap.locationComponent.lastKnownLocation
-            if (gpsPoloha != null)
+            val polohaPobocky = it.geometry() as? com.mapbox.geojson.Point
+            if (gpsPoloha != null && polohaPobocky != null)
             {
-                val point1 = com.mapbox.geojson.Point.fromLngLat(gpsPoloha.longitude, gpsPoloha.latitude)
-                val point2 = com.mapbox.geojson.Point.fromLngLat(latLng.longitude, latLng.latitude)
-                addLine(point1,point2)
+                addRoute(
+                    LatLng(gpsPoloha.latitude, gpsPoloha.longitude),
+                    LatLng(polohaPobocky.latitude(), polohaPobocky.longitude())
+                )
             }
         } ?: kotlin.run { pomocnik?.setGuidelinePercent(1f) }
     }
