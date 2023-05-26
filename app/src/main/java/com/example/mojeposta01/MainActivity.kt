@@ -299,7 +299,9 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
 
                         GeocodingService(this).geocodeAddress(adresaProHledani) { vysledek ->
                             vysledek?.let { lokace ->
-                                mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(lokace))
+                                val zoomLevel = 12.0
+                                val cameraUpdate = CameraUpdateFactory.newLatLngZoom(lokace, zoomLevel)
+                                mapboxMap.animateCamera(cameraUpdate)
                             }
                         }
 
@@ -331,11 +333,15 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             val nazev = properties.get("NAZEV").asString
             val adresa = properties.get("ADRESA").asString
 
+
             //Toast.makeText(this, "$nazev $adresa", Toast.LENGTH_LONG).show()
             val nazevTextView = findViewById<TextView>(R.id.nazevpobocky)
             nazevTextView.text = nazev
             val adresaTextView = findViewById<TextView>(R.id.adresapobocky)
             adresaTextView.text = adresa
+            if(!properties.get("ZRUSENA").isJsonNull)
+                adresaTextView.text = adresaTextView.text.toString() + "\nPobočka bude uzavřena 1. 7. 2023"
+
             pomocnik?.setGuidelinePercent(0.8f)
             mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
             val gpsPoloha = mapboxMap.locationComponent.lastKnownLocation
