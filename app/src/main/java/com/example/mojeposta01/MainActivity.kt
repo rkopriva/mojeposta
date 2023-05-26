@@ -1,19 +1,27 @@
 package com.example.mojeposta01
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Point
 import android.graphics.RectF
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.Button
+import android.util.AttributeSet
 import android.util.Log
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
+import android.view.View
+import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.Guideline
 import androidx.core.content.ContextCompat
+import com.google.firebase.database.core.Context
 import com.mapbox.android.core.permissions.PermissionsListener
 import com.mapbox.android.core.permissions.PermissionsManager
+import com.mapbox.geojson.Feature
+import com.mapbox.geojson.FeatureCollection
+import com.mapbox.geojson.LineString
 import com.mapbox.mapboxsdk.Mapbox
 import com.mapbox.mapboxsdk.camera.CameraPosition
 import com.mapbox.mapboxsdk.camera.CameraUpdateFactory
@@ -27,6 +35,8 @@ import com.mapbox.mapboxsdk.maps.MapboxMap
 import com.mapbox.mapboxsdk.maps.Style
 import com.mapbox.mapboxsdk.style.expressions.Expression
 import com.mapbox.mapboxsdk.style.layers.CircleLayer
+import com.mapbox.mapboxsdk.style.layers.LineLayer
+import com.mapbox.mapboxsdk.style.layers.PropertyFactory
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleColor
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleOpacity
 import com.mapbox.mapboxsdk.style.layers.PropertyFactory.circleRadius
@@ -46,6 +56,7 @@ import java.io.Reader
 import java.io.StringWriter
 import java.io.Writer
 import java.net.URISyntaxException
+
 
 class MainActivity : AppCompatActivity(),PermissionsListener {
     private var permissionsManager: PermissionsManager = PermissionsManager(this)
@@ -85,7 +96,7 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
                 isLocationComponentEnabled = true
 
                 // Set the LocationComponent's camera mode
-                cameraMode = CameraMode.TRACKING
+                cameraMode = CameraMode.NONE
 
                 // Set the LocationComponent's render mode
                 renderMode = RenderMode.COMPASS
@@ -177,8 +188,33 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             )
             style.addLayer(zrusenaPostaLayer)
 
+
         } catch (exception: URISyntaxException) {
             Log.e("MainActivity", "Check the URL " + exception.message)
+        }
+    }
+    private fun addRoute(start:LatLng, end:LatLng)
+    {
+        RoutingService(this).findRoute(start, end) { featureColection ->
+            val style = mapboxMap.style ?: return@findRoute
+            if(style.getSource("navigacniCara")==null) {
+                style.addSource(
+                    GeoJsonSource(
+                        "navigacniCara",featureColection)
+                )
+
+                val layer = LineLayer("cara", "navigacniCara")
+                    .withProperties(
+                        PropertyFactory.lineColor("rgb(0,0,255)"),
+                        PropertyFactory.lineWidth(2f),
+                        PropertyFactory.lineGapWidth(2f)
+                    )
+                style.addLayer(layer)
+            }
+            else
+            {
+                style.getSourceAs<GeoJsonSource>("navigacniCara")?.setGeoJson(featureColection)
+            }
         }
     }
     override fun onStart() {
@@ -256,9 +292,29 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
                     .build()
                 enableLocationComponent(it)
                 addSourcesAndLayers(it)
+
+                val searchEditText = findViewById<EditText>(R.id.searchEditText)
+                searchEditText.setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_SEARCH) {
+                        val adresaProHledani = searchEditText.text.toString()
+
+                        GeocodingService(this).geocodeAddress(adresaProHledani) { vysledek ->
+                            vysledek?.let { lokace ->
+                                val zoomLevel = 12.0
+                                val cameraUpdate = CameraUpdateFactory.newLatLngZoom(lokace, zoomLevel)
+                                mapboxMap.animateCamera(cameraUpdate)
+                            }
+                        }
+
+                        return@setOnEditorActionListener true
+                    }
+                    false
+                }
+
             }
         }
     }
+
     private fun handleMapViewClick(latLng: LatLng) {
         val centerPoint = mapboxMap.projection.toScreenLocation(latLng)
         val distanceTolerance = 0.5f
@@ -278,13 +334,26 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             val nazev = properties.get("NAZEV").asString
             val adresa = properties.get("ADRESA").asString
 
+
             //Toast.makeText(this, "$nazev $adresa", Toast.LENGTH_LONG).show()
             val nazevTextView = findViewById<TextView>(R.id.nazevpobocky)
             nazevTextView.text = nazev
             val adresaTextView = findViewById<TextView>(R.id.adresapobocky)
             adresaTextView.text = adresa
+            if(!properties.get("ZRUSENA").isJsonNull)
+                adresaTextView.text = adresaTextView.text.toString() + "\nPobočka bude uzavřena 1. 7. 2023"
+
             pomocnik?.setGuidelinePercent(0.8f)
             mapboxMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+            val gpsPoloha = mapboxMap.locationComponent.lastKnownLocation
+            val polohaPobocky = it.geometry() as? com.mapbox.geojson.Point
+            if (gpsPoloha != null && polohaPobocky != null)
+            {
+                addRoute(
+                    LatLng(gpsPoloha.latitude, gpsPoloha.longitude),
+                    LatLng(polohaPobocky.latitude(), polohaPobocky.longitude())
+                )
+            }
         } ?: kotlin.run { pomocnik?.setGuidelinePercent(1f) }
     }
     private fun validateKey(mapTilerKey: String?) {
@@ -295,6 +364,7 @@ class MainActivity : AppCompatActivity(),PermissionsListener {
             throw Exception("Please enter correct MapTiler key in module-level gradle.build file in defaultConfig section")
         }
     }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults)
